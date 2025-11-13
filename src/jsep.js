@@ -610,7 +610,8 @@ export class Jsep {
 			else if (ch === Jsep.PERIOD_CODE || optional) {
 				if (optional) {
 					this.index--;
-				} else if (this.expr.charCodeAt(this.index) === Jsep.PERIOD_CODE) {
+				}
+				else if (this.expr.charCodeAt(this.index) === Jsep.PERIOD_CODE) {
 					// allow '..' as an operator (note that we already advanced this.index, above)
 					this.index -= 2;
 					break;
