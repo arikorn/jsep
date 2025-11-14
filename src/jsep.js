@@ -481,7 +481,7 @@ export class Jsep {
 	 * @returns {boolean|jsep.Expression}
 	 */
 	gobbleToken() {
-		let ch, to_check, tc_len, node;
+		let ch, ch_next, to_check, tc_len, node;
 
 		this.gobbleSpaces();
 		node = this.searchHook('gobble-token');
@@ -490,9 +490,10 @@ export class Jsep {
 		}
 
 		ch = this.code;
+		ch_next = this.expr.charCodeAt(this.index +1);
 
-		if (Jsep.isDecimalDigit(ch) || ch === Jsep.PERIOD_CODE) {
-			// Char code 46 is a dot `.` which can start off a numeric literal
+		if (Jsep.isDecimalDigit(ch) || (ch === Jsep.PERIOD_CODE && ch_next !== Jsep.PERIOD_CODE)) {
+			// A PERIOD `.` can start off a numeric literal, but not if it's `..` (which can be an operator)
 			return this.gobbleNumericLiteral();
 		}
 
@@ -612,8 +613,8 @@ export class Jsep {
 					this.index--;
 				}
 				else if (this.expr.charCodeAt(this.index) === Jsep.PERIOD_CODE) {
-					// allow '..' as an operator (note that we already advanced this.index, above)
-					this.index -= 2;
+					// if '..' it's not a property extractor, so exit after reverting this.index, which we advanced, above
+					this.index--;
 					break;
 				}
 				this.gobbleSpaces();
@@ -676,13 +677,19 @@ export class Jsep {
 		}
 
 		chCode = this.code;
+		const prevCode = this.expr.charCodeAt(this.index - 1)
 
 		// Check to make sure this isn't a variable name that start with a number (123abc)
 		if (Jsep.isIdentifierStart(chCode)) {
 			this.throwError('Variable names cannot start with a number (' +
 				number + this.char + ')');
 		}
-		else if (chCode === Jsep.PERIOD_CODE || (number.length === 1 && number.charCodeAt(0) === Jsep.PERIOD_CODE)) {
+		else if (chCode === Jsep.PERIOD_CODE && prevCode ===  Jsep.PERIOD_CODE) {
+			// number "ends" with '..', treat it as the start of a new operator, and roll back the index.
+			// note that the call to gobbleNumbericLiteral() prevents the possibility of "number" starting with `..`
+			this.index--;
+		}
+		else if (number.length === 1 && number.charCodeAt(0) === Jsep.PERIOD_CODE) {
 			this.throwError('Unexpected period');
 		}
 
