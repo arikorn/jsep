@@ -481,22 +481,18 @@ export class Jsep {
 	 * @returns {boolean|jsep.Expression}
 	 */
 	gobbleToken() {
-		let ch, ch_next, to_check, tc_len, node;
+		let ch, to_check, tc_len, node;
 
 		this.gobbleSpaces();
 		node = this.searchHook('gobble-token');
+		if (!node) {
+			node = this.gobbleNumericLiteral();
+		}
 		if (node) {
 			return this.runHook('after-token', node);
 		}
 
 		ch = this.code;
-		ch_next = this.expr.charCodeAt(this.index +1);
-
-		if (Jsep.isDecimalDigit(ch) || (ch === Jsep.PERIOD_CODE && ch_next !== Jsep.PERIOD_CODE)) {
-			// A PERIOD `.` can start off a numeric literal, but not if it's `..` (which can be an operator)
-			return this.gobbleNumericLiteral();
-		}
-
 		if (ch === Jsep.SQUOTE_CODE || ch === Jsep.DQUOTE_CODE) {
 			// Single or double quotes
 			node = this.gobbleStringLiteral();
@@ -638,12 +634,19 @@ export class Jsep {
 	}
 
 	/**
-	 * Parse simple numeric literals: `12`, `3.4`, `.5`. Do this by using a string to
+	 * Check for and parse simple numeric literals: `12`, `3.4`, `.5`. Do this by using a string to
 	 * keep track of everything in the numeric literal and then calling `parseFloat` on that string
-	 * @returns {jsep.Literal}
+	 * @returns {jsep.Literal|undefined}
 	 */
 	gobbleNumericLiteral() {
-		let number = '', ch, chCode;
+		let number = '', ch, ch_next, chCode;
+		chCode = this.code;
+		ch_next = this.expr.charCodeAt(this.index +1);
+
+		if (!Jsep.isDecimalDigit(chCode) && !(chCode === Jsep.PERIOD_CODE && ch_next !== Jsep.PERIOD_CODE)) {
+			// A PERIOD `.` can start off a numeric literal, but not if it's `..` (which can be an operator)
+			return;
+		}
 
 		while (Jsep.isDecimalDigit(this.code)) {
 			number += this.expr.charAt(this.index++);
@@ -677,7 +680,7 @@ export class Jsep {
 		}
 
 		chCode = this.code;
-		const prevCode = this.expr.charCodeAt(this.index - 1)
+		const prevCode = this.expr.charCodeAt(this.index - 1);
 
 		// Check to make sure this isn't a variable name that start with a number (123abc)
 		if (Jsep.isIdentifierStart(chCode)) {
@@ -686,7 +689,7 @@ export class Jsep {
 		}
 		else if (chCode === Jsep.PERIOD_CODE && prevCode ===  Jsep.PERIOD_CODE) {
 			// number "ends" with '..', treat it as the start of a new operator, and roll back the index.
-			// note that the call to gobbleNumbericLiteral() prevents the possibility of "number" starting with `..`
+			// note that the possibility of `..` as the first two chars is eliminated above
 			this.index--;
 		}
 		else if (number.length === 1 && number.charCodeAt(0) === Jsep.PERIOD_CODE) {
